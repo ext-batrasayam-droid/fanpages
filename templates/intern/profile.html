@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}My Profile{% endblock %}
+{% block content %}
+<div class="page-header"><h2>My Profile</h2></div>
+
+<div class="profile-wrap">
+  <div class="card profile-card">
+    <div class="avatar-lg" style="background:{{ current_user.avatar_color }}">
+      {{ current_user.full_name[0] }}
+    </div>
+    <div class="profile-name">{{ current_user.full_name }}</div>
+    <div class="profile-role intern-tag">{{ current_user.role }}</div>
+    <div class="profile-bio">{{ current_user.bio or "No bio yet." }}</div>
+    <div class="profile-meta">Member since {{ current_user.created_at.strftime('%B %Y') }}</div>
+  </div>
+
+  <div class="card" style="flex:1">
+    <h3 style="margin-bottom:20px">Edit Profile</h3>
+    <form method="POST" class="profile-form">
+      <label>Full Name</label>
+      <input type="text" name="full_name" value="{{ current_user.full_name }}" class="form-input"/>
+
+      <label>Bio</label>
+      <textarea name="bio" class="form-input" rows="3">{{ current_user.bio }}</textarea>
+
+      <label>Avatar Color</label>
+      <div class="color-picker">
+        {% for color in ['#ff0000','#e91e63','#9c27b0','#3f51b5','#2196f3','#009688','#4caf50','#ff9800','#795548'] %}
+        <label class="color-opt">
+          <input type="radio" name="avatar_color" value="{{ color }}" {% if current_user.avatar_color == color %}checked{% endif %}/>
+          <span style="background:{{ color }}"></span>
+        </label>
+        {% endfor %}
+      </div>
+
+      <label>New Password <small>(leave blank to keep current)</small></label>
+      <input type="password" name="new_password" class="form-input" placeholder="New password"/>
+
+      <button type="submit" class="btn-primary" style="margin-top:16px">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>{% block title %}Unacademy FanPages Report{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+{% if current_user.is_authenticated %}
+<nav class="navbar">
+  <div class="nav-brand">▶ Unacademy FanPages Report</div>
+  <div class="nav-links">
+    {% if current_user.role == 'reviewer' %}
+      <a href="{{ url_for('reviewer_dashboard') }}" class="{% if request.endpoint=='reviewer_dashboard' %}active{% endif %}">Dashboard</a>
+      <a href="{{ url_for('reviewer_channels') }}" class="{% if request.endpoint=='reviewer_channels' %}active{% endif %}">Channels</a>
+      <a href="{{ url_for('quick_open') }}" class="{% if request.endpoint=='quick_open' %}active{% endif %}">Quick Open</a>
+      <a href="{{ url_for('reviewer_analytics') }}" class="{% if request.endpoint=='reviewer_analytics' %}active{% endif %}">Analytics</a>
+      <a href="{{ url_for('reviewer_top_videos') }}" class="{% if request.endpoint=='reviewer_top_videos' %}active{% endif %}">Top Videos</a>
+      <a href="{{ url_for('saved_reels') }}" class="{% if request.endpoint=='saved_reels' %}active{% endif %}">Saved Reels</a>
+      <a href="{{ url_for('reviewer_reports') }}" class="{% if request.endpoint=='reviewer_reports' %}active{% endif %}">Reports</a>
+    {% else %}
+      <a href="{{ url_for('intern_dashboard') }}" class="{% if request.endpoint=='intern_dashboard' %}active{% endif %}">Dashboard</a>
+      <a href="{{ url_for('intern_channels') }}" class="{% if request.endpoint=='intern_channels' %}active{% endif %}">My Channels</a>
+      <a href="{{ url_for('intern_profile') }}" class="{% if request.endpoint=='intern_profile' %}active{% endif %}">Profile</a>
+    {% endif %}
+  </div>
+  <div class="nav-user">
+    <div class="avatar" style="background:{{ current_user.avatar_color }}">{{ current_user.full_name[0] }}</div>
+    <span>{{ current_user.full_name }}</span>
+    <span class="badge {{ current_user.role }}">{{ current_user.role }}</span>
+    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+  </div>
+</nav>
+<div class="made-by">Made by Sayam Batra</div>
+{% endif %}
+
+<div class="page-wrap">
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    {% for m in messages %}
+      <div class="flash">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+{% block content %}{% endblock %}
+</div>
+</body>
+</html>

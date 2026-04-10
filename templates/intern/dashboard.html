@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}My Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Welcome back, {{ current_user.full_name }} 👋</h2>
+  <a href="{{ url_for('intern_channels') }}" class="btn-primary">+ Add Channel</a>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-icon">📺</div>
+    <div class="stat-val">{{ stats.total }}</div>
+    <div class="stat-label">Channels Tracked</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">👥</div>
+    <div class="stat-val">{{ "{:,}".format(stats.subscribers) }}</div>
+    <div class="stat-label">Total Subscribers</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">👁</div>
+    <div class="stat-val">{{ "{:,}".format(stats.views) }}</div>
+    <div class="stat-label">Total Views</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">📈</div>
+    <div class="stat-val">{{ stats.avg_eng }}%</div>
+    <div class="stat-label">Avg Engagement</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>My Channels</h3>
+    <form method="POST" action="{{ url_for('refresh_all') }}">
+      <button class="btn-outline" type="submit">↻ Refresh All</button>
+    </form>
+  </div>
+  {% if channels %}
+  <div class="channel-grid">
+    {% for ch in channels %}
+    {% set snap = ch.snapshots|sort(attribute='fetched_at')|last if ch.snapshots else None %}
+    <div class="channel-card">
+      {% if snap and snap.thumbnail %}
+        <img src="{{ snap.thumbnail }}" class="ch-thumb" alt=""/>
+      {% else %}
+        <div class="ch-thumb-placeholder">▶</div>
+      {% endif %}
+      <div class="ch-info">
+        <a href="{{ ch.channel_url }}" target="_blank" class="ch-name">{{ ch.channel_name or ch.channel_id }}</a>
+        <div class="ch-meta">
+          {% if ch.category %}<span class="tag">{{ ch.category }}</span>{% endif %}
+          {% if ch.country %}<span class="tag">{{ ch.country }}</span>{% endif %}
+        </div>
+        {% if snap %}
+        <div class="ch-stats">
+          <span>👥 {{ "{:,}".format(snap.subscribers) }}</span>
+          <span>👁 {{ "{:,}".format(snap.total_views) }}</span>
+          <span class="eng-badge {% if snap.engagement_rate >= 10 %}green{% elif snap.engagement_rate >= 3 %}orange{% else %}red{% endif %}">
+            {{ snap.engagement_rate }}%
+          </span>
+        </div>
+        <div class="ch-date">Updated {{ snap.fetched_at.strftime('%b %d, %Y') }}</div>
+        {% endif %}
+      </div>
+      <div class="ch-actions">
+        <form method="POST" action="{{ url_for('refresh_channel', cid=ch.id) }}" style="display:inline">
+          <button class="btn-icon" title="Refresh">↻</button>
+        </form>
+        <form method="POST" action="{{ url_for('delete_channel', cid=ch.id) }}" style="display:inline"
+              onsubmit="return confirm('Remove this channel?')">
+          <button class="btn-icon danger" title="Delete">✕</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div>📭</div>
+    <p>No channels yet. <a href="{{ url_for('intern_channels') }}">Add your first channel</a></p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

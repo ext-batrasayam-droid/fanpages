@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<div class="page-header"><h2>Export Reports</h2></div>
+
+<div class="reports-grid">
+  <div class="card report-card">
+    <div class="report-icon">📊</div>
+    <h3>Full Report — All Interns</h3>
+    <p>All channels from all interns with stats, top videos, and summary sheet.</p>
+    <a href="{{ url_for('download_excel') }}" class="btn-green">⬇ Download Excel</a>
+  </div>
+
+  {% for intern in interns %}
+  <div class="card report-card">
+    <div class="report-icon" style="background:{{ intern.avatar_color }}">{{ intern.full_name[0] }}</div>
+    <h3>{{ intern.full_name }}</h3>
+    <p>{{ intern.channels|length }} channel{{ 's' if intern.channels|length != 1 }} tracked</p>
+    <a href="{{ url_for('download_excel', intern_id=intern.id) }}" class="btn-outline">⬇ Download Excel</a>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card" style="margin-top:20px">
+  <h3>Custom Date Range Export</h3>
+  <p style="color:#888;margin-bottom:16px">Filter channels by date added and export</p>
+  <form method="GET" action="{{ url_for('download_excel') }}" class="filter-form">
+    <select name="intern_id" class="form-input sm">
+      <option value="all">All Interns</option>
+      {% for i in interns %}
+      <option value="{{ i.id }}">{{ i.full_name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-green sm">⬇ Export</button>
+  </form>
+</div>
+{% endblock %}

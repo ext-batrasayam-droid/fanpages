@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}All Channels{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>All Fan Pages ({{ channels|length }})</h2>
+  <a href="{{ url_for('download_excel', intern_id=filters.intern_id) }}" class="btn-green">⬇ Export Excel</a>
+</div>
+
+<!-- Category Quick Tabs -->
+<div class="cat-tabs">
+  <a href="{{ url_for('reviewer_channels', category='all', intern_id=filters.intern_id, sort=filters.sort, order=filters.order) }}"
+     class="cat-tab {% if filters.category=='all' %}active{% endif %}">
+    🌐 All
+  </a>
+  <a href="{{ url_for('reviewer_channels', category='JEE', intern_id=filters.intern_id, sort=filters.sort, order=filters.order) }}"
+     class="cat-tab jee {% if filters.category=='JEE' %}active{% endif %}">
+    ⚗️ JEE
+  </a>
+  <a href="{{ url_for('reviewer_channels', category='NEET', intern_id=filters.intern_id, sort=filters.sort, order=filters.order) }}"
+     class="cat-tab neet {% if filters.category=='NEET' %}active{% endif %}">
+    🧬 NEET
+  </a>
+  <a href="{{ url_for('reviewer_channels', category='K12', intern_id=filters.intern_id, sort=filters.sort, order=filters.order) }}"
+     class="cat-tab k12 {% if filters.category=='K12' %}active{% endif %}">
+    📚 K12
+  </a>
+  <a href="{{ url_for('reviewer_channels', category='UPSC', intern_id=filters.intern_id, sort=filters.sort, order=filters.order) }}"
+     class="cat-tab upsc {% if filters.category=='UPSC' %}active{% endif %}">
+    🏛️ UPSC
+  </a>
+  {% for c in categories if c not in ['JEE','NEET','K12','UPSC'] %}
+  <a href="{{ url_for('reviewer_channels', category=c, intern_id=filters.intern_id, sort=filters.sort, order=filters.order) }}"
+     class="cat-tab {% if filters.category==c %}active{% endif %}">
+    {{ c }}
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Filters -->
+<div class="card filter-bar">
+  <form method="GET" class="filter-form">
+    <input type="hidden" name="category" value="{{ filters.category }}"/>
+    <select name="intern_id" class="form-input sm">
+      <option value="all" {% if filters.intern_id=='all' %}selected{% endif %}>All Interns</option>
+      {% for i in interns %}
+      <option value="{{ i.id }}" {% if filters.intern_id==i.id|string %}selected{% endif %}>{{ i.full_name }}</option>
+      {% endfor %}
+    </select>
+    <select name="sort" class="form-input sm">
+      <option value="subscribers"      {% if filters.sort=='subscribers' %}selected{% endif %}>Sort: Subscribers</option>
+      <option value="total_views"      {% if filters.sort=='total_views' %}selected{% endif %}>Sort: Views</option>
+      <option value="engagement_rate"  {% if filters.sort=='engagement_rate' %}selected{% endif %}>Sort: Engagement</option>
+      <option value="video_count"      {% if filters.sort=='video_count' %}selected{% endif %}>Sort: Videos</option>
+      <option value="avg_views_per_video" {% if filters.sort=='avg_views_per_video' %}selected{% endif %}>Sort: Avg Views</option>
+    </select>
+    <select name="order" class="form-input sm">
+      <option value="desc" {% if filters.order=='desc' %}selected{% endif %}>↓ Desc</option>
+      <option value="asc"  {% if filters.order=='asc'  %}selected{% endif %}>↑ Asc</option>
+    </select>
+    <button type="submit" class="btn-primary sm">Apply</button>
+    <a href="{{ url_for('reviewer_channels') }}" class="btn-outline sm">Reset</a>
+    <input type="text" id="searchBox" placeholder="Search channels..." class="form-input sm"
+           oninput="filterRows(this.value)" style="margin-left:auto;width:220px"/>
+  </form>
+</div>
+
+<!-- Summary for active category -->
+{% if channels %}
+<div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+  <div class="stat-card"><div class="stat-icon">📺</div>
+    <div class="stat-val">{{ channels|length }}</div><div class="stat-label">Channels</div></div>
+  <div class="stat-card"><div class="stat-icon">👥</div>
+    <div class="stat-val">{{ "{:,}".format(channels|sum(attribute='subscribers')) }}</div><div class="stat-label">Subscribers</div></div>
+  <div class="stat-card"><div class="stat-icon">👁</div>
+    <div class="stat-val">{{ "{:,}".format(channels|sum(attribute='total_views')) }}</div><div class="stat-label">Total Views</div></div>
+  <div class="stat-card"><div class="stat-icon">🎬</div>
+    <div class="stat-val">{{ "{:,}".format(channels|sum(attribute='video_count')) }}</div><div class="stat-label">Total Videos</div></div>
+  <div class="stat-card"><div class="stat-icon">📈</div>
+    <div class="stat-val">{{ (channels|sum(attribute='engagement_rate') / channels|length)|round(2) }}%</div>
+    <div class="stat-label">Avg Engagement</div></div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="table-wrap">
+    <table class="data-table" id="chTable">
+      <thead>
+        <tr>
+          <th>#</th><th>Channel</th><th>Intern</th><th>Category</th>
+          <th>Subscribers</th><th>Total Views</th><th>Videos</th>
+          <th>Avg Views</th><th>Engagement</th><th>Updated</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ch in channels %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>
+            <div class="ch-cell">
+              {% if ch.thumbnail %}<img src="{{ ch.thumbnail }}" class="mini-thumb"/>{% endif %}
+              <a href="{{ ch.url }}" target="_blank">{{ ch.channel_name }}</a>
+            </div>
+          </td>
+          <td>{{ ch.added_by }}</td>
+          <td>{% if ch.category %}<span class="tag cat-{{ ch.category|lower }}">{{ ch.category }}</span>{% else %}—{% endif %}</td>
+          <td>{{ "{:,}".format(ch.subscribers) }}</td>
+          <td>{{ "{:,}".format(ch.total_views) }}</td>
+          <td>{{ "{:,}".format(ch.video_count) }}</td>
+          <td>{{ "{:,}".format(ch.avg_views_per_video) }}</td>
+          <td><span class="eng-badge {% if ch.engagement_rate >= 10 %}green{% elif ch.engagement_rate >= 3 %}orange{% else %}red{% endif %}">{{ ch.engagement_rate }}%</span></td>
+          <td>{{ ch.fetched_at }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('delete_channel', cid=ch.id) }}" style="display:inline"
+                  onsubmit="return confirm('Remove channel?')">
+              <button class="btn-icon danger" title="Delete">✕</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not channels %}
+        <tr><td colspan="11" style="text-align:center;color:#555;padding:30px">No channels found for this filter.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function filterRows(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll("#chTable tbody tr").forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
+  });
+}
+</script>
+{% endblock %}

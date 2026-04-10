@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}My Channels{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>My Channels</h2>
+</div>
+
+<div class="card">
+  <h3 style="margin-bottom:16px">Add New Channel</h3>
+  <form method="POST" action="{{ url_for('add_channel') }}" class="add-form">
+    <input type="text" name="url" placeholder="YouTube URL or @handle or Channel ID" required class="form-input" style="flex:2"/>
+    <select name="category" class="form-input">
+      <option value="">Category (optional)</option>
+      <optgroup label="Exam Prep">
+        <option>JEE</option>
+        <option>NEET</option>
+        <option>K12</option>
+        <option>UPSC</option>
+        <option>CAT</option>
+        <option>SSC</option>
+      </optgroup>
+      <optgroup label="General">
+        <option>Entertainment</option>
+        <option>Education</option>
+        <option>Gaming</option>
+        <option>Music</option>
+        <option>News</option>
+        <option>Sports</option>
+        <option>Tech</option>
+        <option>Lifestyle</option>
+        <option>Comedy</option>
+        <option>Motivation</option>
+        <option>Other</option>
+      </optgroup>
+    </select>
+    <input type="text" name="notes" placeholder="Notes (optional)" class="form-input"/>
+    <button type="submit" class="btn-primary">Add Channel</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Tracked Channels ({{ channels|length }})</h3>
+    {% if channels %}
+    <form method="POST" action="{{ url_for('refresh_all') }}">
+      <button class="btn-outline">↻ Refresh All</button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if channels %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Channel</th><th>Category</th><th>Subscribers</th>
+          <th>Total Views</th><th>Videos</th><th>Avg Views</th>
+          <th>Engagement</th><th>Updated</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ch in channels %}
+        {% set snap = ch.snapshots|sort(attribute='fetched_at')|last if ch.snapshots else None %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>
+            <div class="ch-cell">
+              {% if snap and snap.thumbnail %}<img src="{{ snap.thumbnail }}" class="mini-thumb"/>{% endif %}
+              <a href="{{ ch.channel_url }}" target="_blank">{{ ch.channel_name or ch.channel_id }}</a>
+            </div>
+          </td>
+          <td>{% if ch.category %}<span class="tag">{{ ch.category }}</span>{% else %}—{% endif %}</td>
+          {% if snap %}
+          <td>{{ "{:,}".format(snap.subscribers) }}</td>
+          <td>{{ "{:,}".format(snap.total_views) }}</td>
+          <td>{{ "{:,}".format(snap.video_count) }}</td>
+          <td>{{ "{:,}".format(snap.avg_views) }}</td>
+          <td><span class="eng-badge {% if snap.engagement_rate >= 10 %}green{% elif snap.engagement_rate >= 3 %}orange{% else %}red{% endif %}">{{ snap.engagement_rate }}%</span></td>
+          <td>{{ snap.fetched_at.strftime('%b %d') }}</td>
+          {% else %}
+          <td colspan="6" style="color:#666">No data yet</td>
+          <td>—</td>
+          {% endif %}
+          <td class="action-cell">
+            <form method="POST" action="{{ url_for('refresh_channel', cid=ch.id) }}" style="display:inline">
+              <button class="btn-icon" title="Refresh">↻</button>
+            </form>
+            <button class="btn-icon" onclick="openEdit({{ ch.id }},'{{ ch.category }}','{{ ch.notes }}')" title="Edit">✎</button>
+            <form method="POST" action="{{ url_for('delete_channel', cid=ch.id) }}" style="display:inline"
+                  onsubmit="return confirm('Remove channel?')">
+              <button class="btn-icon danger" title="Delete">✕</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><p>No channels added yet.</p></div>
+  {% endif %}
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal" style="display:none">
+  <div class="modal-box">
+    <h3>Edit Channel</h3>
+    <form method="POST" id="editForm">
+      <select name="category" class="form-input" id="editCat">
+        <option value="">No Category</option>
+        <optgroup label="Exam Prep">
+          <option>JEE</option><option>NEET</option><option>K12</option><option>UPSC</option>
+          <option>CAT</option><option>SSC</option>
+        </optgroup>
+        <optgroup label="General">
+          <option>Entertainment</option><option>Education</option><option>Gaming</option>
+          <option>Music</option><option>News</option><option>Sports</option>
+          <option>Tech</option><option>Lifestyle</option><option>Comedy</option>
+          <option>Motivation</option><option>Other</option>
+        </optgroup>
+      </select>
+      <input type="text" name="notes" id="editNotes" placeholder="Notes" class="form-input" style="margin-top:10px"/>
+      <div class="modal-actions">
+        <button type="submit" class="btn-primary">Save</button>
+        <button type="button" onclick="closeEdit()" class="btn-outline">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEdit(id, cat, notes) {
+  document.getElementById("editForm").action = `/intern/channel/${id}/edit`;
+  document.getElementById("editCat").value = cat;
+  document.getElementById("editNotes").value = notes;
+  document.getElementById("editModal").style.display = "flex";
+}
+function closeEdit() { document.getElementById("editModal").style.display = "none"; }
+</script>
+{% endblock %}

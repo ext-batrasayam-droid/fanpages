@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Saved Reels{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Saved Reels</h2>
+  <span style="color:#888;font-size:.9rem">{{ reels|length }} saved</span>
+</div>
+
+<div class="card filter-bar">
+  <div class="filter-form">
+    <a href="{{ url_for('saved_reels') }}" class="btn-outline sm {% if active_tag=='all' %}active-filter{% endif %}">All</a>
+    {% for t in tags %}
+    <a href="{{ url_for('saved_reels', tag=t) }}" class="btn-outline sm {% if active_tag==t %}active-filter{% endif %}">{{ t }}</a>
+    {% endfor %}
+  </div>
+  <input type="text" placeholder="Search reels..." class="form-input sm" oninput="filterReels(this.value)" style="margin-left:auto"/>
+</div>
+
+{% if reels %}
+<div class="video-grid" id="reelGrid">
+  {% for r in reels %}
+  <div class="video-card" data-text="{{ r.title }} {{ r.channel_name }}">
+    <a href="{{ r.url }}" target="_blank">
+      <img src="{{ r.thumbnail }}" class="vid-thumb" alt=""/>
+    </a>
+    <div class="vid-info">
+      <a href="{{ r.url }}" target="_blank" class="vid-title">{{ r.title }}</a>
+      <div class="vid-channel">
+        <span>{{ r.channel_name }}</span>
+        {% if r.tag %}<span class="tag" style="margin-left:6px">{{ r.tag }}</span>{% endif %}
+      </div>
+      <div class="vid-stats">
+        <span>👁 {{ "{:,}".format(r.views) }}</span>
+        <span>👍 {{ "{:,}".format(r.likes) }}</span>
+        <span>💬 {{ "{:,}".format(r.comments) }}</span>
+        <span class="vid-date">{{ r.published }}</span>
+      </div>
+      {% if r.reviewer_note %}
+      <div class="reel-note">📝 {{ r.reviewer_note }}</div>
+      {% endif %}
+      <div class="reel-actions">
+        <button class="btn-icon" onclick="openNoteModal({{ r.id }},'{{ r.reviewer_note|replace("'","\\'")|replace('"','\\"') }}','{{ r.tag }}')">✎ Note</button>
+        <form method="POST" action="{{ url_for('delete_reel', rid=r.id) }}" style="display:inline"
+              onsubmit="return confirm('Remove saved reel?')">
+          <button class="btn-icon danger">✕</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card empty-state">
+  <div>🎬</div>
+  <p>No saved reels yet. Go to Top Videos and click the bookmark icon to save reels.</p>
+</div>
+{% endif %}
+
+<!-- Note Modal -->
+<div id="noteModal" class="modal" style="display:none">
+  <div class="modal-box">
+    <h3>Edit Note & Tag</h3>
+    <form method="POST" id="noteForm">
+      <label>Tag</label>
+      <select name="tag" class="form-input" id="noteTag" style="margin-bottom:10px">
+        <option value="">No Tag</option>
+        <option>Reference</option><option>Best Practice</option><option>Viral</option>
+        <option>JEE</option><option>NEET</option><option>UPSC</option>
+        <option>Trending</option><option>Review Later</option>
+      </select>
+      <label>Note</label>
+      <textarea name="note" id="noteText" class="form-input" rows="4" placeholder="Add your note..."></textarea>
+      <div class="modal-actions" style="margin-top:12px">
+        <button type="submit" class="btn-primary">Save</button>
+        <button type="button" onclick="document.getElementById('noteModal').style.display='none'" class="btn-outline">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function filterReels(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll(".video-card").forEach(c => {
+    c.style.display = c.dataset.text.toLowerCase().includes(q) ? "" : "none";
+  });
+}
+function openNoteModal(id, note, tag) {
+  document.getElementById("noteForm").action = `/reviewer/saved-reels/${id}/note`;
+  document.getElementById("noteText").value = note;
+  document.getElementById("noteTag").value = tag;
+  document.getElementById("noteModal").style.display = "flex";
+}
+</script>
+{% endblock %}

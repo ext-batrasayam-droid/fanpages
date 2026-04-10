@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}{{ intern.full_name }} — Detail{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="avatar-lg" style="background:{{ intern.avatar_color }};width:48px;height:48px;font-size:1.2rem">{{ intern.full_name[0] }}</div>
+    <div>
+      <h2>{{ intern.full_name }}</h2>
+      <span style="color:#666;font-size:.85rem">@{{ intern.username }} · Intern since {{ intern.created_at.strftime('%b %Y') }}</span>
+    </div>
+  </div>
+  <a href="{{ url_for('reviewer_channels', intern_id=intern.id) }}" class="btn-outline">View All Channels</a>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card"><div class="stat-icon">📺</div>
+    <div class="stat-val">{{ channel_stats|length }}</div><div class="stat-label">Channels</div></div>
+  <div class="stat-card"><div class="stat-icon">👥</div>
+    <div class="stat-val">{{ "{:,}".format(channel_stats|sum(attribute='subscribers')) }}</div><div class="stat-label">Total Subscribers</div></div>
+  <div class="stat-card"><div class="stat-icon">👁</div>
+    <div class="stat-val">{{ "{:,}".format(channel_stats|sum(attribute='total_views')) }}</div><div class="stat-label">Total Views</div></div>
+  <div class="stat-card"><div class="stat-icon">📈</div>
+    {% if channel_stats %}
+    <div class="stat-val">{{ (channel_stats|sum(attribute='engagement_rate') / channel_stats|length)|round(2) }}%</div>
+    {% else %}<div class="stat-val">—</div>{% endif %}
+    <div class="stat-label">Avg Engagement</div></div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <div class="card-header"><h3>Channel Performance</h3></div>
+    {% if channel_stats %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Channel</th><th>Category</th><th>Subscribers</th><th>Views</th><th>Engagement</th></tr></thead>
+        <tbody>
+          {% for ch in channel_stats %}
+          <tr>
+            <td><a href="{{ ch.url }}" target="_blank">{{ ch.channel_name }}</a></td>
+            <td>{% if ch.category %}<span class="tag">{{ ch.category }}</span>{% else %}—{% endif %}</td>
+            <td>{{ "{:,}".format(ch.subscribers) }}</td>
+            <td>{{ "{:,}".format(ch.total_views) }}</td>
+            <td><span class="eng-badge {% if ch.engagement_rate >= 10 %}green{% elif ch.engagement_rate >= 3 %}orange{% else %}red{% endif %}">{{ ch.engagement_rate }}%</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><p>No channel data yet.</p></div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header"><h3>Reviewer Notes</h3></div>
+    <form method="POST" style="margin-bottom:16px">
+      <textarea name="note" class="form-input" rows="3" placeholder="Add a note about this intern's work..."></textarea>
+      <button type="submit" class="btn-primary" style="margin-top:8px">Add Note</button>
+    </form>
+    {% if notes %}
+    <div style="display:flex;flex-direction:column;gap:10px">
+      {% for n in notes %}
+      <div class="note-card">
+        <div class="note-text">{{ n.note }}</div>
+        <div class="note-meta">
+          {{ n.reviewer.full_name }} · {{ n.created_at.strftime('%b %d, %Y %H:%M') }}
+          <form method="POST" action="{{ url_for('delete_intern_note', nid=n.id) }}" style="display:inline;margin-left:8px"
+                onsubmit="return confirm('Delete note?')">
+            <button class="btn-icon danger" style="padding:1px 6px;font-size:.75rem">✕</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:20px"><p>No notes yet.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

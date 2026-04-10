@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Insights{% endblock %}
+{% block content %}
+<div class="page-header"><h2>Analytics & Insights</h2></div>
+
+<div class="card filter-bar">
+  <form method="GET" class="filter-form">
+    <label style="color:#aaa;font-size:.85rem">From</label>
+    <input type="date" name="from" value="{{ filters.from }}" class="form-input sm"/>
+    <label style="color:#aaa;font-size:.85rem">To</label>
+    <input type="date" name="to" value="{{ filters.to }}" class="form-input sm"/>
+    <select name="intern_id" class="form-input sm">
+      <option value="all" {% if filters.intern_id=='all' %}selected{% endif %}>All Interns</option>
+      {% for i in interns %}
+      <option value="{{ i.id }}" {% if filters.intern_id==i.id|string %}selected{% endif %}>{{ i.full_name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-primary sm">Apply</button>
+    <a href="{{ url_for('reviewer_insights', **{'from': range7, 'to': today, 'intern_id': filters.intern_id}) }}" class="btn-outline sm">7d</a>
+    <a href="{{ url_for('reviewer_insights', **{'from': range30, 'to': today, 'intern_id': filters.intern_id}) }}" class="btn-outline sm">30d</a>
+    <a href="{{ url_for('reviewer_insights', **{'from': range90, 'to': today, 'intern_id': filters.intern_id}) }}" class="btn-outline sm">90d</a>
+  </form>
+</div>
+
+{% set cd = chart_data|tojson|safe %}
+<script>const CD = {{ chart_data|safe }};</script>
+
+<div class="two-col">
+  <div class="card">
+    <h3>Subscribers by Channel</h3>
+    <canvas id="subChart" height="200"></canvas>
+  </div>
+  <div class="card">
+    <h3>Total Views by Channel</h3>
+    <canvas id="viewChart" height="200"></canvas>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h3>Engagement Rate (%)</h3>
+    <canvas id="engChart" height="200"></canvas>
+  </div>
+  <div class="card">
+    <h3>Subscribers vs Views (Scatter)</h3>
+    <canvas id="scatterChart" height="200"></canvas>
+  </div>
+</div>
+
+<script>
+const chartDefaults = {
+  plugins: { legend: { labels: { color: "#ccc" } } },
+  scales: {
+    x: { ticks: { color: "#aaa", maxRotation: 45 }, grid: { color: "#222" } },
+    y: { ticks: { color: "#aaa" }, grid: { color: "#222" } }
+  }
+};
+
+new Chart(document.getElementById("subChart"), {
+  type: "bar",
+  data: {
+    labels: CD.labels,
+    datasets: [{ label: "Subscribers", data: CD.subscribers,
+      backgroundColor: "#ff0000aa", borderColor: "#ff0000", borderWidth:1, borderRadius:4 }]
+  },
+  options: chartDefaults
+});
+
+new Chart(document.getElementById("viewChart"), {
+  type: "bar",
+  data: {
+    labels: CD.labels,
+    datasets: [{ label: "Total Views", data: CD.views,
+      backgroundColor: "#2196f3aa", borderColor: "#2196f3", borderWidth:1, borderRadius:4 }]
+  },
+  options: chartDefaults
+});
+
+new Chart(document.getElementById("engChart"), {
+  type: "line",
+  data: {
+    labels: CD.labels,
+    datasets: [{ label: "Engagement %", data: CD.engagement,
+      borderColor: "#4caf50", backgroundColor: "#4caf5022",
+      tension: 0.4, fill: true, pointBackgroundColor: "#4caf50" }]
+  },
+  options: chartDefaults
+});
+
+const scatterData = CD.labels.map((l,i) => ({ x: CD.subscribers[i], y: CD.views[i], label: l }));
+new Chart(document.getElementById("scatterChart"), {
+  type: "scatter",
+  data: {
+    datasets: [{ label: "Channels", data: scatterData,
+      backgroundColor: "#ff980099", pointRadius: 6 }]
+  },
+  options: {
+    plugins: {
+      legend: { labels: { color: "#ccc" } },
+      tooltip: { callbacks: { label: ctx => `${ctx.raw.label}: ${ctx.raw.x.toLocaleString()} subs, ${ctx.raw.y.toLocaleString()} views` } }
+    },
+    scales: {
+      x: { title: { display: true, text: "Subscribers", color: "#aaa" }, ticks: { color: "#aaa" }, grid: { color: "#222" } },
+      y: { title: { display: true, text: "Total Views", color: "#aaa" }, ticks: { color: "#aaa" }, grid: { color: "#222" } }
+    }
+  }
+});
+</script>
+{% endblock %}

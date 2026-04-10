@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Top Videos{% endblock %}
+{% block content %}
+<div class="page-header"><h2>Top Videos</h2></div>
+
+<div class="card filter-bar">
+  <form method="GET" class="filter-form">
+    <select name="intern_id" class="form-input sm">
+      <option value="all" {% if filters.intern_id=='all' %}selected{% endif %}>All Interns</option>
+      {% for i in interns %}
+      <option value="{{ i.id }}" {% if filters.intern_id==i.id|string %}selected{% endif %}>{{ i.full_name }}</option>
+      {% endfor %}
+    </select>
+    <select name="sort" class="form-input sm">
+      <option value="views" {% if filters.sort=='views' %}selected{% endif %}>Sort: Views</option>
+      <option value="likes" {% if filters.sort=='likes' %}selected{% endif %}>Sort: Likes</option>
+      <option value="comments" {% if filters.sort=='comments' %}selected{% endif %}>Sort: Comments</option>
+    </select>
+    <button type="submit" class="btn-primary sm">Apply</button>
+  </form>
+  <input type="text" placeholder="Search videos..." class="form-input sm" oninput="filterVids(this.value)" style="margin-left:auto"/>
+</div>
+
+<div class="card">
+  <div class="video-grid" id="vidGrid">
+    {% for v in videos %}
+    <div class="video-card" data-text="{{ v.title }} {{ v.channel_name }}">
+      <a href="{{ v.url }}" target="_blank">
+        <img src="{{ v.thumbnail }}" class="vid-thumb" alt=""/>
+      </a>
+      <div class="vid-info">
+        <a href="{{ v.url }}" target="_blank" class="vid-title">{{ v.title }}</a>
+        <div class="vid-channel">
+          <a href="{{ v.channel_url }}" target="_blank">{{ v.channel_name }}</a>
+          <span class="vid-by">by {{ v.added_by }}</span>
+        </div>
+        <div class="vid-stats">
+          <span>👁 {{ "{:,}".format(v.views) }}</span>
+          <span>👍 {{ "{:,}".format(v.likes) }}</span>
+          <span>💬 {{ "{:,}".format(v.comments) }}</span>
+          <span class="vid-date">{{ v.published }}</span>
+        </div>
+        <button class="btn-outline sm" style="margin-top:8px" onclick="saveReel(this, {{ v|tojson }})">🔖 Save Reel</button>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state"><p>No video data yet. Refresh channels to fetch top videos.</p></div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+function filterVids(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll(".video-card").forEach(c => {
+    c.style.display = c.dataset.text.toLowerCase().includes(q) ? "" : "none";
+  });
+}
+async function saveReel(btn, v) {
+  btn.disabled = true;
+  btn.textContent = "Saving...";
+  const res = await fetch("/reviewer/save-reel", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(v)
+  });
+  const data = await res.json();
+  if (data.status === "saved") {
+    btn.textContent = "✅ Saved";
+    btn.style.color = "#4caf50";
+  } else {
+    btn.textContent = "Already Saved";
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Reviewer Dashboard{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>Reviewer Dashboard</h2>
+  <a href="{{ url_for('download_excel') }}" class="btn-green">⬇ Export All Excel</a>
+</div>
+
+<!-- Global Stats -->
+<div class="stat-grid">
+  <div class="stat-card red">
+    <div class="stat-icon">📺</div>
+    <div class="stat-val">{{ stats.total }}</div>
+    <div class="stat-label">Total Channels</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">👤</div>
+    <div class="stat-val">{{ stats.interns }}</div>
+    <div class="stat-label">Active Interns</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">👥</div>
+    <div class="stat-val">{{ "{:,}".format(stats.subscribers) }}</div>
+    <div class="stat-label">Total Subscribers</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">👁</div>
+    <div class="stat-val">{{ "{:,}".format(stats.views) }}</div>
+    <div class="stat-label">Total Views</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">📈</div>
+    <div class="stat-val">{{ stats.avg_eng }}%</div>
+    <div class="stat-label">Avg Engagement</div>
+  </div>
+</div>
+
+<!-- Top Intern Leaderboard -->
+<div class="card leaderboard-card">
+  <div class="card-header">
+    <h3>🏆 Top Intern Leaderboard</h3>
+    <div class="period-tabs">
+      <a href="?period=day"   class="period-tab {% if period=='day'   %}active{% endif %}">Today</a>
+      <a href="?period=month" class="period-tab {% if period=='month' %}active{% endif %}">This Month</a>
+      <a href="?period=year"  class="period-tab {% if period=='year'  %}active{% endif %}">This Year</a>
+    </div>
+  </div>
+  <div class="leaderboard">
+    {% for row in leaderboard %}
+    <div class="lb-row {% if loop.index == 1 %}lb-gold{% elif loop.index == 2 %}lb-silver{% elif loop.index == 3 %}lb-bronze{% endif %}">
+      <div class="lb-rank">
+        {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}
+      </div>
+      <div class="avatar" style="background:{{ row.intern.avatar_color }}">{{ row.intern.full_name[0] }}</div>
+      <div class="lb-info">
+        <div class="lb-name">{{ row.intern.full_name }}</div>
+        <div class="lb-meta">
+          {{ row.channels }} channels
+          {% if row.channels_added > 0 %}· +{{ row.channels_added }} added{% endif %}
+        </div>
+      </div>
+      <div class="lb-stats">
+        <span title="Subscribers">👥 {{ "{:,}".format(row.subscribers) }}</span>
+        <span title="Views">👁 {{ "{:,}".format(row.views) }}</span>
+        <span title="Avg Engagement" class="eng-badge {% if row.avg_eng >= 10 %}green{% elif row.avg_eng >= 3 %}orange{% else %}red{% endif %}">{{ row.avg_eng }}%</span>
+      </div>
+      <div class="lb-score">
+        <div class="score-val">{{ "{:,}".format(row.score) }}</div>
+        <div class="score-label">score</div>
+      </div>
+      <div class="lb-bar-wrap">
+        <div class="lb-bar" style="width:{{ (row.score / leaderboard[0].score * 100)|int if leaderboard[0].score > 0 else 0 }}%"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="lb-note">Score = subscribers × 0.4 + views × 0.3 + engagement × 10k + new channels × 5k</div>
+</div>
+
+<!-- Two col: interns + top channels -->
+<div class="two-col">
+  <div class="card">
+    <h3 style="margin-bottom:14px">Interns Overview</h3>
+    <div class="intern-list">
+      {% for intern in interns %}
+      {% set ch_count = intern.channels|length %}
+      <div class="intern-row">
+        <div class="avatar" style="background:{{ intern.avatar_color }}">{{ intern.full_name[0] }}</div>
+        <div class="intern-info">
+          <div class="intern-name">{{ intern.full_name }}</div>
+          <div class="intern-meta">@{{ intern.username }} · {{ ch_count }} channel{{ 's' if ch_count != 1 }}</div>
+        </div>
+        <a href="{{ url_for('reviewer_channels', intern_id=intern.id) }}" class="btn-outline sm">Channels</a>
+        <a href="{{ url_for('intern_notes', iid=intern.id) }}" class="btn-outline sm">Notes</a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:14px">Top Channels by Subscribers</h3>
+    <div class="top-list">
+      {% for ch in top_channels %}
+        {% set snap = ch.snapshots|sort(attribute='fetched_at')|last if ch.snapshots else None %}
+        {% if snap %}
+        <div class="top-row">
+          <span class="top-rank">{{ loop.index }}</span>
+          {% if snap.thumbnail %}<img src="{{ snap.thumbnail }}" class="mini-thumb"/>{% endif %}
+          <div class="top-info">
+            <a href="{{ ch.channel_url }}" target="_blank">{{ ch.channel_name }}</a>
+            <small>by {{ ch.owner.full_name }}</small>
+          </div>
+          <div class="top-stat">{{ "{:,}".format(snap.subscribers) }}</div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Category shortcuts -->
+<div class="card">
+  <div class="card-header">
+    <h3>Fan Pages by Category</h3>
+    <a href="{{ url_for('category_insights') }}" class="btn-outline">Full Category Insights →</a>
+  </div>
+  <div class="cat-tabs" style="margin-bottom:0">
+    <a href="{{ url_for('reviewer_channels', category='JEE') }}"  class="cat-tab jee">⚗️ JEE</a>
+    <a href="{{ url_for('reviewer_channels', category='NEET') }}" class="cat-tab neet">🧬 NEET</a>
+    <a href="{{ url_for('reviewer_channels', category='K12') }}"  class="cat-tab k12">📚 K12</a>
+    <a href="{{ url_for('reviewer_channels', category='UPSC') }}" class="cat-tab upsc">🏛️ UPSC</a>
+    <a href="{{ url_for('reviewer_channels') }}" class="cat-tab">🌐 All</a>
+  </div>
+</div>
+
+<!-- Channels by intern chart -->
+<div class="card">
+  <div class="card-header">
+    <h3>Channels by Intern</h3>
+    <a href="{{ url_for('reviewer_insights') }}" class="btn-outline">View Full Insights →</a>
+  </div>
+  <canvas id="internChart" height="80"></canvas>
+</div>
+
+<script>
+const internNames  = {{ interns|map(attribute='full_name')|list|tojson }};
+const internCounts = {{ interns|map(attribute='channels')|map('length')|list|tojson }};
+new Chart(document.getElementById("internChart"), {
+  type: "bar",
+  data: {
+    labels: internNames,
+    datasets: [{
+      label: "Channels Tracked",
+      data: internCounts,
+      backgroundColor: "#ff0000cc",
+      borderColor: "#ff0000",
+      borderWidth: 1,
+      borderRadius: 6
+    }]
+  },
+  options: {
+    plugins: { legend: { labels: { color: "#ccc" } } },
+    scales: {
+      x: { ticks: { color: "#aaa" }, grid: { color: "#222" } },
+      y: { ticks: { color: "#aaa" }, grid: { color: "#222" } }
+    }
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>YouTube Shorts Report Generator</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo">▶</div>
+    <h1>YouTube Shorts Report Generator</h1>
+    <p>Analyze up to 100 channels — subscribers, views, engagement & more</p>
+  </header>
+
+  <div class="card">
+    <label for="channelInput">Paste channel URLs or IDs (one per line)</label>
+    <textarea id="channelInput" placeholder="https://www.youtube.com/@MrBeast&#10;UCX6OQ3DkcsbYNE6H8uQQuVA&#10;https://www.youtube.com/channel/UC...&#10;..." rows="12"></textarea>
+    <div class="actions">
+      <button id="fetchBtn" onclick="fetchData()">Generate Report</button>
+      <button id="downloadBtn" onclick="downloadExcel()" disabled>Download Excel</button>
+      <span id="counter">0 channels entered</span>
+    </div>
+  </div>
+
+  <div id="progressSection" style="display:none" class="card">
+    <div class="progress-label">Fetching data... <span id="progressText">0%</span></div>
+    <div class="progress-bar"><div id="progressFill"></div></div>
+  </div>
+
+  <div id="errorSection" style="display:none" class="card errors">
+    <h3>⚠ Errors</h3>
+    <ul id="errorList"></ul>
+  </div>
+
+  <div id="resultsSection" style="display:none" class="card">
+    <div class="results-header">
+      <h2>Results <span id="resultCount"></span></h2>
+      <input type="text" id="searchBox" placeholder="Search channels..." oninput="filterTable()"/>
+    </div>
+    <div class="table-wrap">
+      <table id="resultsTable">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)"># ↕</th>
+            <th onclick="sortTable(1)">Channel ↕</th>
+            <th onclick="sortTable(2)">Country ↕</th>
+            <th onclick="sortTable(3)">Subscribers ↕</th>
+            <th onclick="sortTable(4)">Total Views ↕</th>
+            <th onclick="sortTable(5)">Videos ↕</th>
+            <th onclick="sortTable(6)">Avg Views ↕</th>
+            <th onclick="sortTable(7)">Engagement % ↕</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let allResults = [];
+let sortDir = {};
+
+document.getElementById("channelInput").addEventListener("input", function() {
+  const lines = this.value.split("\n").filter(l => l.trim());
+  document.getElementById("counter").textContent = lines.length + " channels entered";
+});
+
+async function fetchData() {
+  const raw = document.getElementById("channelInput").value;
+  const channels = raw.split("\n").map(l => l.trim()).filter(Boolean);
+  if (!channels.length) return alert("Please enter at least one channel.");
+
+  document.getElementById("fetchBtn").disabled = true;
+  document.getElementById("downloadBtn").disabled = true;
+  document.getElementById("progressSection").style.display = "block";
+  document.getElementById("resultsSection").style.display = "none";
+  document.getElementById("errorSection").style.display = "none";
+  setProgress(10);
+
+  try {
+    const res = await fetch("/fetch", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({channels})
+    });
+    setProgress(80);
+    const data = await res.json();
+    allResults = data.results;
+    setProgress(100);
+    setTimeout(() => {
+      document.getElementById("progressSection").style.display = "none";
+      renderTable(allResults);
+      renderErrors(data.errors);
+      document.getElementById("downloadBtn").disabled = false;
+      document.getElementById("fetchBtn").disabled = false;
+    }, 400);
+  } catch(e) {
+    alert("Error: " + e.message);
+    document.getElementById("fetchBtn").disabled = false;
+  }
+}
+
+function setProgress(val) {
+  document.getElementById("progressFill").style.width = val + "%";
+  document.getElementById("progressText").textContent = val + "%";
+}
+
+function fmt(n) {
+  if (n >= 1e9) return (n/1e9).toFixed(1) + "B";
+  if (n >= 1e6) return (n/1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n/1e3).toFixed(1) + "K";
+  return n;
+}
+
+function engColor(rate) {
+  if (rate >= 10) return "green";
+  if (rate >= 3) return "orange";
+  return "red";
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = "";
+  data.forEach((r, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td><a href="${r.url}" target="_blank">${r.channel_name}</a></td>
+      <td>${r.country || "N/A"}</td>
+      <td>${fmt(r.subscribers)}</td>
+      <td>${fmt(r.total_views)}</td>
+      <td>${fmt(r.video_count)}</td>
+      <td>${fmt(r.avg_views_per_video)}</td>
+      <td><span class="eng ${engColor(r.engagement_rate)}">${r.engagement_rate}%</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("resultCount").textContent = `(${data.length})`;
+  document.getElementById("resultsSection").style.display = "block";
+}
+
+function renderErrors(errors) {
+  if (!errors.length) return;
+  const ul = document.getElementById("errorList");
+  ul.innerHTML = errors.map(e => `<li><b>${e.input}</b>: ${e.error}</li>`).join("");
+  document.getElementById("errorSection").style.display = "block";
+}
+
+function filterTable() {
+  const q = document.getElementById("searchBox").value.toLowerCase();
+  const filtered = allResults.filter(r => r.channel_name.toLowerCase().includes(q));
+  renderTable(filtered);
+}
+
+function sortTable(col) {
+  sortDir[col] = !sortDir[col];
+  const keys = ["", "channel_name", "country", "subscribers", "total_views", "video_count", "avg_views_per_video", "engagement_rate"];
+  const key = keys[col];
+  if (!key) return;
+  allResults.sort((a, b) => {
+    const av = a[key], bv = b[key];
+    if (typeof av === "number") return sortDir[col] ? av - bv : bv - av;
+    return sortDir[col] ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  renderTable(allResults);
+}
+
+function downloadExcel() {
+  window.location.href = "/download";
+}
+</script>
+</body>
+</html>

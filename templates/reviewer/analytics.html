@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>📊 Analytics Dashboard</h2>
+  <a href="{{ url_for('download_excel') }}" class="btn-green">⬇ Export Excel</a>
+</div>
+
+<!-- Filters -->
+<div class="card filter-bar">
+  <form method="GET" class="filter-form">
+    <span style="color:var(--muted);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">From</span>
+    <input type="date" name="from" value="{{ filters.from }}" class="form-input sm"/>
+    <span style="color:var(--muted);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">To</span>
+    <input type="date" name="to" value="{{ filters.to }}" class="form-input sm"/>
+    <select name="intern_id" class="form-input sm">
+      <option value="all" {% if filters.intern_id=='all' %}selected{% endif %}>All Interns</option>
+      {% for i in interns %}
+      <option value="{{ i.id }}" {% if filters.intern_id==i.id|string %}selected{% endif %}>{{ i.full_name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn-primary sm">Apply</button>
+    <a href="{{ url_for('reviewer_analytics', **{'from': range7,  'to': today, 'intern_id': filters.intern_id}) }}" class="btn-outline sm">7d</a>
+    <a href="{{ url_for('reviewer_analytics', **{'from': range30, 'to': today, 'intern_id': filters.intern_id}) }}" class="btn-outline sm">30d</a>
+    <a href="{{ url_for('reviewer_analytics', **{'from': range90, 'to': today, 'intern_id': filters.intern_id}) }}" class="btn-outline sm">90d</a>
+  </form>
+</div>
+
+<!-- Period summary stats -->
+<div class="stat-grid">
+  <div class="stat-card red">
+    <div class="stat-icon">📺</div>
+    <div class="stat-val">{{ summary.channels }}</div>
+    <div class="stat-label">Channels in Period</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">👥</div>
+    <div class="stat-val">{{ "{:,}".format(summary.total_subs) }}</div>
+    <div class="stat-label">Total Subscribers</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">👁</div>
+    <div class="stat-val">{{ "{:,}".format(summary.total_views) }}</div>
+    <div class="stat-label">Total Views</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">📈</div>
+    <div class="stat-val">{{ summary.avg_eng }}%</div>
+    <div class="stat-label">Avg Engagement</div>
+  </div>
+</div>
+
+<script>
+const CD  = {{ chart_data|safe }};
+const CAT = {{ cat_chart|safe }};
+const OPTS = {
+  plugins:{ legend:{ labels:{ color:"#aaa" } } },
+  scales:{
+    x:{ ticks:{ color:"#666", maxRotation:40 }, grid:{ color:"rgba(255,255,255,0.04)" } },
+    y:{ ticks:{ color:"#666" }, grid:{ color:"rgba(255,255,255,0.04)" } }
+  }
+};
+const COLORS = ["#ff0000","#e91e63","#9c27b0","#3f51b5","#2196f3","#009688","#4caf50","#ff9800","#ff5722","#607d8b"];
+const catBg = CAT.labels.map((_,i) => COLORS[i%COLORS.length]+"bb");
+const catBd = CAT.labels.map((_,i) => COLORS[i%COLORS.length]);
+</script>
+
+<!-- ── Section 1: Channel-level charts ── -->
+<div class="analytics-section-title">Channel Performance</div>
+<div class="two-col">
+  <div class="card">
+    <div class="card-header"><h3>Subscribers by Channel</h3></div>
+    <canvas id="subChart" height="220"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Total Views by Channel</h3></div>
+    <canvas id="viewChart" height="220"></canvas>
+  </div>
+</div>
+<div class="two-col">
+  <div class="card">
+    <div class="card-header"><h3>Engagement Rate (%)</h3></div>
+    <canvas id="engChart" height="220"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Subscribers vs Views</h3></div>
+    <canvas id="scatterChart" height="220"></canvas>
+  </div>
+</div>
+
+<!-- ── Section 2: Category breakdown ── -->
+<div class="analytics-section-title" style="margin-top:8px">Category Breakdown</div>
+
+<!-- Category stat cards -->
+<div class="stat-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">
+  {% for row in cat_data %}
+  <div class="stat-card" style="text-align:left;padding:16px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <span class="tag cat-{{ row.category|lower }}">{{ row.category }}</span>
+      <span style="color:var(--red);font-weight:800;font-size:.82rem">{{ row.count }} ch</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;font-size:.8rem;color:var(--muted)">
+      <span>👥 {{ "{:,}".format(row.subscribers) }}</span>
+      <span>👁 {{ "{:,}".format(row.views) }}</span>
+      <span class="eng-badge {% if row.avg_engagement >= 10 %}green{% elif row.avg_engagement >= 3 %}orange{% else %}red{% endif %}" style="width:fit-content;margin-top:2px">{{ row.avg_engagement }}%</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <div class="card-header"><h3>Channels per Category</h3></div>
+    <canvas id="catCountChart" height="220"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Subscribers per Category</h3></div>
+    <canvas id="catSubChart" height="220"></canvas>
+  </div>
+</div>
+<div class="two-col">
+  <div class="card">
+    <div class="card-header"><h3>Views per Category</h3></div>
+    <canvas id="catViewChart" height="220"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-header"><h3>Avg Engagement per Category</h3></div>
+    <canvas id="catEngChart" height="220"></canvas>
+  </div>
+</div>
+
+<!-- Full breakdown table -->
+<div class="card">
+  <div class="card-header"><h3>Full Category Breakdown</h3></div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Category</th><th>Channels</th><th>Total Subscribers</th><th>Total Views</th><th>Avg Engagement</th></tr>
+      </thead>
+      <tbody>
+        {% for row in cat_data %}
+        <tr>
+          <td><span class="tag cat-{{ row.category|lower }}">{{ row.category }}</span></td>
+          <td>{{ row.count }}</td>
+          <td>{{ "{:,}".format(row.subscribers) }}</td>
+          <td>{{ "{:,}".format(row.views) }}</td>
+          <td><span class="eng-badge {% if row.avg_engagement >= 10 %}green{% elif row.avg_engagement >= 3 %}orange{% else %}red{% endif %}">{{ row.avg_engagement }}%</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ── Channel charts ──
+new Chart(document.getElementById("subChart"),{type:"bar",data:{labels:CD.labels,datasets:[{label:"Subscribers",data:CD.subscribers,backgroundColor:"rgba(255,0,0,0.5)",borderColor:"#ff0000",borderWidth:1,borderRadius:5}]},options:OPTS});
+new Chart(document.getElementById("viewChart"),{type:"bar",data:{labels:CD.labels,datasets:[{label:"Views",data:CD.views,backgroundColor:"rgba(33,150,243,0.5)",borderColor:"#2196f3",borderWidth:1,borderRadius:5}]},options:OPTS});
+new Chart(document.getElementById("engChart"),{type:"line",data:{labels:CD.labels,datasets:[{label:"Engagement %",data:CD.engagement,borderColor:"#4caf50",backgroundColor:"rgba(76,175,80,0.1)",tension:0.4,fill:true,pointBackgroundColor:"#4caf50",pointRadius:4}]},options:OPTS});
+const scatterData = CD.labels.map((l,i)=>({x:CD.subscribers[i],y:CD.views[i],label:l}));
+new Chart(document.getElementById("scatterChart"),{type:"scatter",data:{datasets:[{label:"Channels",data:scatterData,backgroundColor:"rgba(255,152,0,0.7)",pointRadius:6}]},options:{plugins:{legend:{labels:{color:"#aaa"}},tooltip:{callbacks:{label:c=>`${c.raw.label}: ${c.raw.x.toLocaleString()} subs`}}},scales:{x:{title:{display:true,text:"Subscribers",color:"#666"},ticks:{color:"#666"},grid:{color:"rgba(255,255,255,0.04)"}},y:{title:{display:true,text:"Views",color:"#666"},ticks:{color:"#666"},grid:{color:"rgba(255,255,255,0.04)"}}}}});
+
+// ── Category charts ──
+new Chart(document.getElementById("catCountChart"),{type:"doughnut",data:{labels:CAT.labels,datasets:[{data:CAT.counts,backgroundColor:catBg,borderColor:catBd,borderWidth:1}]},options:{plugins:{legend:{labels:{color:"#aaa"}}}}});
+new Chart(document.getElementById("catSubChart"),{type:"bar",data:{labels:CAT.labels,datasets:[{label:"Subscribers",data:CAT.subscribers,backgroundColor:catBg,borderColor:catBd,borderWidth:1,borderRadius:5}]},options:OPTS});
+new Chart(document.getElementById("catViewChart"),{type:"bar",data:{labels:CAT.labels,datasets:[{label:"Views",data:CAT.views,backgroundColor:"rgba(33,150,243,0.5)",borderColor:"#2196f3",borderWidth:1,borderRadius:5}]},options:OPTS});
+new Chart(document.getElementById("catEngChart"),{type:"line",data:{labels:CAT.labels,datasets:[{label:"Avg Engagement %",data:CAT.engagement,borderColor:"#4caf50",backgroundColor:"rgba(76,175,80,0.1)",tension:0.4,fill:true,pointBackgroundColor:"#4caf50",pointRadius:5}]},options:OPTS});
+</script>
+{% endblock %}

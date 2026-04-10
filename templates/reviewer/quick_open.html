@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Quick Open{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h2>⚡ Quick Open</h2>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span style="color:#666;font-size:.85rem" id="visibleCount">{{ channels|length }} channels</span>
+    <button class="btn-primary" onclick="openAll()">🚀 Open All Visible</button>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card filter-bar" style="padding:12px 18px">
+  <div class="filter-form" style="flex-wrap:wrap;gap:8px">
+    <!-- Category tabs -->
+    <a href="{{ url_for('quick_open', category='all', intern_id=filters.intern_id) }}"
+       class="cat-tab {% if filters.category=='all' %}active{% endif %}">🌐 All</a>
+    <a href="{{ url_for('quick_open', category='JEE', intern_id=filters.intern_id) }}"
+       class="cat-tab jee {% if filters.category=='JEE' %}active{% endif %}">⚗️ JEE</a>
+    <a href="{{ url_for('quick_open', category='NEET', intern_id=filters.intern_id) }}"
+       class="cat-tab neet {% if filters.category=='NEET' %}active{% endif %}">🧬 NEET</a>
+    <a href="{{ url_for('quick_open', category='K12', intern_id=filters.intern_id) }}"
+       class="cat-tab k12 {% if filters.category=='K12' %}active{% endif %}">📚 K12</a>
+    <a href="{{ url_for('quick_open', category='UPSC', intern_id=filters.intern_id) }}"
+       class="cat-tab upsc {% if filters.category=='UPSC' %}active{% endif %}">🏛️ UPSC</a>
+
+    <div style="width:1px;background:#333;margin:0 4px"></div>
+
+    <!-- Intern filter -->
+    <form method="GET" style="display:flex;gap:6px;align-items:center">
+      <input type="hidden" name="category" value="{{ filters.category }}"/>
+      <select name="intern_id" class="form-input sm" onchange="this.form.submit()">
+        <option value="all" {% if filters.intern_id=='all' %}selected{% endif %}>All Interns</option>
+        {% for i in interns %}
+        <option value="{{ i.id }}" {% if filters.intern_id==i.id|string %}selected{% endif %}>{{ i.full_name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+
+    <!-- Live search -->
+    <input type="text" id="searchBox" placeholder="🔍 Search channels..."
+           class="form-input sm" oninput="filterCards(this.value)"
+           style="margin-left:auto;width:220px"/>
+  </div>
+</div>
+
+<!-- Channel Cards Grid -->
+{% if channels %}
+<div class="qo-grid" id="qoGrid">
+  {% for ch in channels %}
+  <a href="{{ ch.url }}" target="_blank" class="qo-card" data-text="{{ ch.name }} {{ ch.category }} {{ ch.added_by }}">
+    <div class="qo-thumb-wrap">
+      {% if ch.thumbnail %}
+        <img src="{{ ch.thumbnail }}" class="qo-thumb" alt=""/>
+      {% else %}
+        <div class="qo-thumb-placeholder">▶</div>
+      {% endif %}
+      <div class="qo-overlay">
+        <span class="qo-open-btn">▶ Open Channel</span>
+      </div>
+    </div>
+    <div class="qo-info">
+      <div class="qo-name">{{ ch.name }}</div>
+      <div class="qo-meta">
+        {% if ch.category %}<span class="tag cat-{{ ch.category|lower }}">{{ ch.category }}</span>{% endif %}
+        <span style="color:#555;font-size:.75rem">{{ ch.added_by }}</span>
+      </div>
+      <div class="qo-stats">
+        <span>👥 {{ "{:,}".format(ch.subscribers) }}</span>
+        <span>👁 {{ "{:,}".format(ch.total_views) }}</span>
+        <span class="eng-badge {% if ch.engagement_rate >= 10 %}green{% elif ch.engagement_rate >= 3 %}orange{% else %}red{% endif %}">
+          {{ ch.engagement_rate }}%
+        </span>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card empty-state">
+  <div>📭</div>
+  <p>No channels found. Try a different filter.</p>
+</div>
+{% endif %}
+
+<script>
+const allCards = [...document.querySelectorAll(".qo-card")];
+
+function filterCards(q) {
+  q = q.toLowerCase();
+  let visible = 0;
+  allCards.forEach(c => {
+    const show = c.dataset.text.toLowerCase().includes(q);
+    c.style.display = show ? "" : "none";
+    if (show) visible++;
+  });
+  document.getElementById("visibleCount").textContent = visible + " channels";
+}
+
+function openAll() {
+  const visible = allCards.filter(c => c.style.display !== "none");
+  if (visible.length > 20) {
+    if (!confirm(`Open ${visible.length} tabs? Your browser may block some.`)) return;
+  }
+  visible.forEach((c, i) => setTimeout(() => window.open(c.href, "_blank"), i * 80));
+}
+</script>
+{% endblock %}

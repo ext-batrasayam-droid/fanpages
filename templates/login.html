@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Login — Unacademy FanPages Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+</head>
+<body class="login-body">
+<div class="login-wrap">
+  <div class="login-logo">▶</div>
+  <h1>Unacademy FanPages Report</h1>
+  <p class="login-sub">YouTube Shorts Analytics Platform</p>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="flash error">{{ messages[0] }}</div>
+    {% endif %}
+  {% endwith %}
+
+  <form method="POST" class="login-form">
+    <input type="text" name="username" placeholder="Username" required autofocus/>
+    <input type="password" name="password" placeholder="Password" required/>
+    <button type="submit">Sign In</button>
+  </form>
+  <div class="login-made-by">Made by Sayam Batra</div>
+</div>
+</body>
+</html>
