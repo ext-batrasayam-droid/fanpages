@@ -42,7 +42,7 @@ def seed_users():
     defaults = [
         ("basudha",    "Basudha@123",    "reviewer", "Basudha"),
         ("sudhanshu",  "Sudhanshu@123",  "reviewer", "Sudhanshu"),
-        ("sayam",      "Sayam@123",      "intern",   "Sayam"),
+        ("sayam",      "sayam2005",      "intern",   "Sayam"),
         ("saurabh",    "Saurabh@123",    "intern",   "Saurabh"),
         ("vivek",      "Vivek@123",      "intern",   "Vivek"),
         ("adishreya",  "Adishreya@123",  "intern",   "Adishreya"),
