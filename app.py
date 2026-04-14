@@ -16,6 +16,10 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///ytreport.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"  # allow http for localhost
 
+# Trust Render's proxy so url_for generates https:// URLs
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
 db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
@@ -543,8 +547,9 @@ def connect_google(cid):
     if not os.path.exists(CLIENT_SECRETS_FILE):
         flash("OAuth not configured on this server. Add GOOGLE_CLIENT_SECRETS_FILE env var on Render.")
         return redirect(url_for("intern_channels"))
+    redirect_uri = os.environ.get("OAUTH_REDIRECT_URI", url_for("oauth2callback", _external=True))
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES,
-        redirect_uri=url_for("oauth2callback", _external=True))
+        redirect_uri=redirect_uri)
     auth_url, state = flow.authorization_url(access_type="offline", include_granted_scopes="true", prompt="consent")
     session["oauth_state"] = state
     session["oauth_channel_id"] = cid
@@ -553,28 +558,37 @@ def connect_google(cid):
 @app.route("/oauth2callback")
 @login_required
 def oauth2callback():
-    state = session.get("oauth_state")
-    cid = session.get("oauth_channel_id")
-    if not state or not cid:
-        flash("OAuth session expired. Try again.")
+    try:
+        state = session.get("oauth_state")
+        cid = session.get("oauth_channel_id")
+        if not state or not cid:
+            flash("OAuth session expired. Try again.")
+            return redirect(url_for("intern_channels"))
+        if not os.path.exists(CLIENT_SECRETS_FILE):
+            flash("OAuth secrets file not found on server.")
+            return redirect(url_for("intern_channels"))
+        redirect_uri = os.environ.get("OAUTH_REDIRECT_URI", url_for("oauth2callback", _external=True))
+        flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES,
+            state=state, redirect_uri=redirect_uri)
+        # On Render (https), the callback URL must also be https
+        auth_response = request.url
+        if auth_response.startswith("http://") and os.environ.get("RENDER"):
+            auth_response = auth_response.replace("http://", "https://", 1)
+        flow.fetch_token(authorization_response=auth_response)
+        creds = flow.credentials
+        token_json = creds.to_json()
+        existing = OAuthToken.query.filter_by(channel_id=cid).first()
+        if existing:
+            existing.token_json = token_json
+            existing.connected_at = datetime.utcnow()
+        else:
+            db.session.add(OAuthToken(channel_id=cid, token_json=token_json))
+        db.session.commit()
+        flash("Google account connected! Studio analytics are now available.")
+        return redirect(url_for("studio_analytics", cid=cid))
+    except Exception as e:
+        flash(f"OAuth failed: {str(e)}")
         return redirect(url_for("intern_channels"))
-    if not os.path.exists(CLIENT_SECRETS_FILE):
-        flash("OAuth secrets file not found on server.")
-        return redirect(url_for("intern_channels"))
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES,
-        state=state, redirect_uri=url_for("oauth2callback", _external=True))
-    flow.fetch_token(authorization_response=request.url)
-    creds = flow.credentials
-    token_json = creds.to_json()
-    existing = OAuthToken.query.filter_by(channel_id=cid).first()
-    if existing:
-        existing.token_json = token_json
-        existing.connected_at = datetime.utcnow()
-    else:
-        db.session.add(OAuthToken(channel_id=cid, token_json=token_json))
-    db.session.commit()
-    flash("Google account connected! Studio analytics are now available.")
-    return redirect(url_for("studio_analytics", cid=cid))
 
 @app.route("/intern/channel/<int:cid>/studio-analytics")
 @login_required
@@ -591,7 +605,12 @@ def studio_analytics(cid):
     start = request.args.get("from", (datetime.utcnow() - timedelta(days=28)).strftime("%Y-%m-%d"))
     end = request.args.get("to", end)
 
-    data = fetch_studio_analytics(token.token_json, ch.channel_id, start, end)
+    try:
+        data = fetch_studio_analytics(token.token_json, ch.channel_id, start, end)
+    except Exception as e:
+        flash(f"Analytics error: {str(e)}")
+        return redirect(url_for("intern_channels"))
+
     if "error" in data:
         flash(f"Analytics error: {data['error']}")
         return redirect(url_for("intern_channels"))
