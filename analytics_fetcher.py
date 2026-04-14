@@ -4,7 +4,10 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
-CLIENT_SECRETS_FILE = "client_secret_813198838998-f96bjkb6crs8m9b1qgib9l0c7mjgktk6.apps.googleusercontent.com.json"
+# Look for the secrets file by name pattern or env var
+_secret_candidates = [f for f in os.listdir(".") if f.startswith("client_secret_") and f.endswith(".json")]
+CLIENT_SECRETS_FILE = os.environ.get("GOOGLE_CLIENT_SECRETS_FILE",
+    _secret_candidates[0] if _secret_candidates else "client_secret.json")
 
 SCOPES = [
     "https://www.googleapis.com/auth/yt-analytics.readonly",

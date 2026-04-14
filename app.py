@@ -540,6 +540,9 @@ def connect_google(cid):
     ch = Channel.query.get_or_404(cid)
     if ch.user_id != current_user.id:
         return "Forbidden", 403
+    if not os.path.exists(CLIENT_SECRETS_FILE):
+        flash("OAuth not configured on this server. Add GOOGLE_CLIENT_SECRETS_FILE env var on Render.")
+        return redirect(url_for("intern_channels"))
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES,
         redirect_uri=url_for("oauth2callback", _external=True))
     auth_url, state = flow.authorization_url(access_type="offline", include_granted_scopes="true", prompt="consent")
@@ -554,6 +557,9 @@ def oauth2callback():
     cid = session.get("oauth_channel_id")
     if not state or not cid:
         flash("OAuth session expired. Try again.")
+        return redirect(url_for("intern_channels"))
+    if not os.path.exists(CLIENT_SECRETS_FILE):
+        flash("OAuth secrets file not found on server.")
         return redirect(url_for("intern_channels"))
     flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES,
         state=state, redirect_uri=url_for("oauth2callback", _external=True))
