@@ -65,3 +65,10 @@ class InternNote(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     reviewer = db.relationship('User', foreign_keys=[reviewer_id])
     intern = db.relationship('User', foreign_keys=[intern_id])
+
+class OAuthToken(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    channel_id = db.Column(db.Integer, db.ForeignKey('channel.id'), nullable=False, unique=True)
+    token_json = db.Column(db.Text, nullable=False)
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+    channel = db.relationship('Channel', backref=db.backref('oauth_token', uselist=False))

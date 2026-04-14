@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block title %}Studio Analytics — {{ ch.channel_name }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h2>📊 Studio Analytics</h2>
+    <div style="color:var(--muted);font-size:.85rem;margin-top:3px">
+      {{ ch.channel_name }} &nbsp;·&nbsp; {{ filters.from }} → {{ filters.to }}
+    </div>
+  </div>
+  <a href="{{ url_for('intern_channels') }}" class="btn-outline">← Back</a>
+</div>
+
+<!-- Date filter -->
+<div class="card filter-bar">
+  <form method="GET" class="filter-form">
+    <span style="color:var(--muted);font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">From</span>
+    <input type="date" name="from" value="{{ filters.from }}" class="form-input sm"/>
+    <span style="color:var(--muted);font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px">To</span>
+    <input type="date" name="to" value="{{ filters.to }}" class="form-input sm"/>
+    <button type="submit" class="btn-primary sm">Apply</button>
+    <a href="?from={{ range7 }}&to={{ today }}"  class="btn-outline sm">7 Days</a>
+    <a href="?from={{ range28 }}&to={{ today }}" class="btn-outline sm">28 Days</a>
+    <a href="?from={{ range90 }}&to={{ today }}" class="btn-outline sm">90 Days</a>
+    <a href="?from={{ today[:4] }}-01-01&to={{ today }}" class="btn-outline sm">{{ today[:4] }} (YTD)</a>
+  </form>
+</div>
+
+{% set ov = data.overview %}
+
+<!-- ── PRIMARY METRICS (Studio-style) ── -->
+<div class="studio-primary-grid">
+
+  <div class="studio-metric-card views">
+    <div class="smc-label">Total Views</div>
+    <div class="smc-val">{{ "{:,}".format((ov.views or 0)|int) }}</div>
+    <div class="smc-sub">{{ filters.from }} – {{ filters.to }}</div>
+  </div>
+
+  {% if data.engaged_views %}
+  <div class="studio-metric-card engaged">
+    <div class="smc-label">Engaged Views</div>
+    <div class="smc-val">{{ "{:,}".format(data.engaged_views|int) }}</div>
+    <div class="smc-sub">Liked, commented or shared</div>
+  </div>
+  {% endif %}
+
+  <div class="studio-metric-card ctr">
+    <div class="smc-label">CTR (Click-Through Rate)</div>
+    <div class="smc-val">{{ "%.2f"|format((ov.impressionClickThroughRate or 0)|float) }}%</div>
+    <div class="smc-sub">{{ "{:,}".format((ov.impressions or 0)|int) }} impressions</div>
+  </div>
+
+  <div class="studio-metric-card stayed">
+    <div class="smc-label">Stayed to Watch</div>
+    <div class="smc-val">{{ "%.1f"|format((ov.averageViewPercentage or 0)|float) }}%</div>
+    <div class="smc-sub">Avg view percentage</div>
+  </div>
+
+  <div class="studio-metric-card watchtime">
+    <div class="smc-label">Watch Time</div>
+    <div class="smc-val">{{ "{:,}".format((ov.estimatedMinutesWatched or 0)|int) }}</div>
+    <div class="smc-sub">Minutes watched</div>
+  </div>
+
+  <div class="studio-metric-card duration">
+    <div class="smc-label">Avg View Duration</div>
+    <div class="smc-val">{{ ((ov.averageViewDuration or 0)|int // 60) }}:{{ "%02d"|format((ov.averageViewDuration or 0)|int % 60) }}</div>
+    <div class="smc-sub">mm:ss per view</div>
+  </div>
+
+</div>
+
+<!-- ── SECONDARY METRICS ── -->
+<div class="stat-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));margin-top:0">
+  <div class="stat-card"><div class="stat-icon">👍</div>
+    <div class="stat-val">{{ "{:,}".format((ov.likes or 0)|int) }}</div><div class="stat-label">Likes</div></div>
+  <div class="stat-card"><div class="stat-icon">💬</div>
+    <div class="stat-val">{{ "{:,}".format((ov.comments or 0)|int) }}</div><div class="stat-label">Comments</div></div>
+  <div class="stat-card"><div class="stat-icon">↗</div>
+    <div class="stat-val">{{ "{:,}".format((ov.shares or 0)|int) }}</div><div class="stat-label">Shares</div></div>
+  <div class="stat-card"><div class="stat-icon">➕</div>
+    <div class="stat-val">+{{ "{:,}".format((ov.subscribersGained or 0)|int) }}</div><div class="stat-label">Subs Gained</div></div>
+  <div class="stat-card"><div class="stat-icon">➖</div>
+    <div class="stat-val">-{{ "{:,}".format((ov.subscribersLost or 0)|int) }}</div><div class="stat-label">Subs Lost</div></div>
+  <div class="stat-card"><div class="stat-icon">📡</div>
+    <div class="stat-val">{{ "{:,}".format((ov.impressions or 0)|int) }}</div><div class="stat-label">Impressions</div></div>
+</div>
+
+<script>
+const OPTS = {
+  plugins:{ legend:{ labels:{ color:"#888", font:{size:11} } } },
+  scales:{
+    x:{ ticks:{ color:"#555", maxRotation:40, font:{size:10} }, grid:{ color:"rgba(255,255,255,0.04)" } },
+    y:{ ticks:{ color:"#555", font:{size:10} }, grid:{ color:"rgba(255,255,255,0.04)" } }
+  }
+};
+</script>
+
+<!-- ── DAILY CHART: Views + CTR + Watch Time ── -->
+{% if data.daily %}
+<div class="card">
+  <div class="card-header">
+    <h3>Performance Over Time</h3>
+    <div style="display:flex;gap:8px">
+      <button class="btn-outline sm" onclick="toggleMetric('views')">Views</button>
+      <button class="btn-outline sm" onclick="toggleMetric('ctr')">CTR</button>
+      <button class="btn-outline sm" onclick="toggleMetric('watchtime')">Watch Time</button>
+    </div>
+  </div>
+  <canvas id="dailyChart" height="90"></canvas>
+  <script>
+  const daily = {{ data.daily|tojson }};
+  const dailyLabels = daily.map(r => r.day);
+  const dailyChart = new Chart(document.getElementById("dailyChart"), {
+    type: "line",
+    data: {
+      labels: dailyLabels,
+      datasets: [
+        { id:"views",    label:"Views",        data: daily.map(r=>r.views||0),
+          borderColor:"#ff0000", backgroundColor:"rgba(255,0,0,0.07)", tension:0.4, fill:true, yAxisID:"y", pointRadius:2 },
+        { id:"ctr",      label:"CTR %",        data: daily.map(r=>r.impressionClickThroughRate||0),
+          borderColor:"#ffd700", backgroundColor:"rgba(255,215,0,0.05)", tension:0.4, fill:false, yAxisID:"y1", pointRadius:2 },
+        { id:"watchtime",label:"Watch Minutes",data: daily.map(r=>r.estimatedMinutesWatched||0),
+          borderColor:"#2196f3", backgroundColor:"rgba(33,150,243,0.06)", tension:0.4, fill:true, yAxisID:"y2", hidden:true, pointRadius:2 }
+      ]
+    },
+    options: { ...OPTS,
+      scales:{
+        x: OPTS.scales.x,
+        y:  { ...OPTS.scales.y, position:"left",  title:{display:true,text:"Views",color:"#ff0000",font:{size:10}} },
+        y1: { ...OPTS.scales.y, position:"right", title:{display:true,text:"CTR %",color:"#ffd700",font:{size:10}}, grid:{drawOnChartArea:false} },
+        y2: { ...OPTS.scales.y, position:"right", title:{display:true,text:"Watch Mins",color:"#2196f3",font:{size:10}}, grid:{drawOnChartArea:false}, display:false }
+      }
+    }
+  });
+  function toggleMetric(id) {
+    const ds = dailyChart.data.datasets.find(d=>d.id===id);
+    if(ds){ ds.hidden = !ds.hidden; dailyChart.update(); }
+  }
+  </script>
+</div>
+{% endif %}
+
+<div class="two-col">
+  <!-- Traffic Sources -->
+  {% if data.traffic %}
+  <div class="card">
+    <div class="card-header"><h3>Traffic Sources</h3></div>
+    <canvas id="trafficChart" height="240"></canvas>
+    <script>
+    const traffic = {{ data.traffic|tojson }};
+    const COLORS = ["#ff0000","#e91e63","#9c27b0","#3f51b5","#2196f3","#009688","#4caf50","#ff9800","#ff5722","#607d8b"];
+    new Chart(document.getElementById("trafficChart"),{
+      type:"doughnut",
+      data:{ labels:traffic.map(r=>r.insightTrafficSourceType), datasets:[{ data:traffic.map(r=>r.views), backgroundColor:COLORS.map(c=>c+"bb"), borderColor:COLORS, borderWidth:1 }] },
+      options:{ plugins:{ legend:{ position:"right", labels:{ color:"#888", font:{size:10}, boxWidth:12 } } } }
+    });
+    </script>
+  </div>
+  {% endif %}
+
+  <!-- Device Types -->
+  {% if data.device %}
+  <div class="card">
+    <div class="card-header"><h3>Device Types</h3></div>
+    <canvas id="deviceChart" height="240"></canvas>
+    <script>
+    const device = {{ data.device|tojson }};
+    new Chart(document.getElementById("deviceChart"),{
+      type:"bar",
+      data:{ labels:device.map(r=>r.deviceType), datasets:[{ label:"Views", data:device.map(r=>r.views), backgroundColor:"rgba(255,0,0,0.5)", borderColor:"#ff0000", borderWidth:1, borderRadius:6 }] },
+      options:OPTS
+    });
+    </script>
+  </div>
+  {% endif %}
+</div>
+
+<div class="two-col">
+  <!-- Geography -->
+  {% if data.geo %}
+  <div class="card">
+    <div class="card-header"><h3>Top Countries</h3></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>#</th><th>Country</th><th>Views</th><th>Watch Mins</th></tr></thead>
+        <tbody>
+          {% for r in data.geo %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ r.country }}</td>
+            <td>{{ "{:,}".format((r.views or 0)|int) }}</td>
+            <td>{{ "{:,}".format((r.estimatedMinutesWatched or 0)|int) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Age & Gender -->
+  {% if data.age_gender %}
+  <div class="card">
+    <div class="card-header"><h3>Audience: Age & Gender</h3></div>
+    <canvas id="ageChart" height="240"></canvas>
+    <script>
+    const ag = {{ data.age_gender|tojson }};
+    const ageGroups = [...new Set(ag.map(r=>r.ageGroup))];
+    const male   = ageGroups.map(a=>{ const r=ag.find(x=>x.ageGroup===a&&x.gender==="MALE");   return r?r.viewerPercentage:0; });
+    const female = ageGroups.map(a=>{ const r=ag.find(x=>x.ageGroup===a&&x.gender==="FEMALE"); return r?r.viewerPercentage:0; });
+    new Chart(document.getElementById("ageChart"),{
+      type:"bar",
+      data:{ labels:ageGroups, datasets:[
+        { label:"Male %",   data:male,   backgroundColor:"rgba(33,150,243,0.6)",  borderColor:"#2196f3", borderWidth:1, borderRadius:4 },
+        { label:"Female %", data:female, backgroundColor:"rgba(233,30,99,0.6)",   borderColor:"#e91e63", borderWidth:1, borderRadius:4 }
+      ]},
+      options:OPTS
+    });
+    </script>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Top Videos with all metrics -->
+{% if data.top_videos %}
+<div class="card">
+  <div class="card-header"><h3>Top Videos — Full Breakdown</h3></div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Video</th><th>Views</th><th>Watch Mins</th>
+          <th>Avg Duration</th><th>Stayed %</th><th>CTR</th>
+          <th>Likes</th><th>Comments</th><th>Shares</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in data.top_videos %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td><a href="https://youtube.com/watch?v={{ r.video }}" target="_blank">{{ r.video }}</a></td>
+          <td>{{ "{:,}".format((r.views or 0)|int) }}</td>
+          <td>{{ "{:,}".format((r.estimatedMinutesWatched or 0)|int) }}</td>
+          <td>{{ ((r.averageViewDuration or 0)|int // 60) }}:{{ "%02d"|format((r.averageViewDuration or 0)|int % 60) }}</td>
+          <td>
+            <span class="eng-badge {% if (r.averageViewPercentage or 0) >= 50 %}green{% elif (r.averageViewPercentage or 0) >= 30 %}orange{% else %}red{% endif %}">
+              {{ "%.1f"|format((r.averageViewPercentage or 0)|float) }}%
+            </span>
+          </td>
+          <td>{{ "%.2f"|format((r.impressionClickThroughRate or 0)|float) }}%</td>
+          <td>{{ "{:,}".format((r.likes or 0)|int) }}</td>
+          <td>{{ "{:,}".format((r.comments or 0)|int) }}</td>
+          <td>{{ "{:,}".format((r.shares or 0)|int) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Shorts Section -->
+{% if data.shorts_overview %}
+{% set so = data.shorts_overview %}
+<div class="card" style="border-color:rgba(255,0,0,0.2)">
+  <div class="card-header"><h3>🩳 Shorts Performance</h3></div>
+  <div class="stat-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))">
+    <div class="stat-card red"><div class="stat-icon">👁</div>
+      <div class="stat-val">{{ "{:,}".format((so.views or 0)|int) }}</div><div class="stat-label">Shorts Views</div></div>
+    <div class="stat-card"><div class="stat-icon">⏱</div>
+      <div class="stat-val">{{ "{:,}".format((so.estimatedMinutesWatched or 0)|int) }}</div><div class="stat-label">Watch Mins</div></div>
+    <div class="stat-card"><div class="stat-icon">👍</div>
+      <div class="stat-val">{{ "{:,}".format((so.likes or 0)|int) }}</div><div class="stat-label">Likes</div></div>
+    <div class="stat-card"><div class="stat-icon">💬</div>
+      <div class="stat-val">{{ "{:,}".format((so.comments or 0)|int) }}</div><div class="stat-label">Comments</div></div>
+    <div class="stat-card"><div class="stat-icon">↗</div>
+      <div class="stat-val">{{ "{:,}".format((so.shares or 0)|int) }}</div><div class="stat-label">Shares</div></div>
+    <div class="stat-card"><div class="stat-icon">➕</div>
+      <div class="stat-val">+{{ "{:,}".format((so.subscribersGained or 0)|int) }}</div><div class="stat-label">Subs Gained</div></div>
+  </div>
+  {% if data.shorts_daily %}
+  <canvas id="shortsChart" height="80" style="margin-top:16px"></canvas>
+  <script>
+  const sd = {{ data.shorts_daily|tojson }};
+  new Chart(document.getElementById("shortsChart"),{
+    type:"bar",
+    data:{ labels:sd.map(r=>r.day), datasets:[{ label:"Shorts Views", data:sd.map(r=>r.views||0), backgroundColor:"rgba(255,0,0,0.5)", borderColor:"#ff0000", borderWidth:1, borderRadius:4 }] },
+    options:OPTS
+  });
+  </script>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

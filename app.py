@@ -1,16 +1,20 @@
 from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, flash, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from database import db, User, Channel, Snapshot, SavedReel, InternNote
+from database import db, User, Channel, Snapshot, SavedReel, InternNote, OAuthToken
 from youtube_fetcher import extract_channel_id, fetch_channel_stats
+from analytics_fetcher import CLIENT_SECRETS_FILE, SCOPES, fetch_studio_analytics
 from report_generator import generate_excel
 from datetime import datetime, timedelta
-import json
+from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
+import json, os
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "yt-shorts-secret-2024"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///ytreport.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"  # allow http for localhost
 
 db.init_app(app)
 login_manager = LoginManager(app)
@@ -528,6 +532,81 @@ def download_excel():
     return send_file(output,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True, download_name="youtube_report.xlsx")
+
+# ── OAuth & Studio Analytics ─────────────────────────────────────────────────
+@app.route("/intern/channel/<int:cid>/connect-google")
+@login_required
+def connect_google(cid):
+    ch = Channel.query.get_or_404(cid)
+    if ch.user_id != current_user.id:
+        return "Forbidden", 403
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES,
+        redirect_uri=url_for("oauth2callback", _external=True))
+    auth_url, state = flow.authorization_url(access_type="offline", include_granted_scopes="true", prompt="consent")
+    session["oauth_state"] = state
+    session["oauth_channel_id"] = cid
+    return redirect(auth_url)
+
+@app.route("/oauth2callback")
+@login_required
+def oauth2callback():
+    state = session.get("oauth_state")
+    cid = session.get("oauth_channel_id")
+    if not state or not cid:
+        flash("OAuth session expired. Try again.")
+        return redirect(url_for("intern_channels"))
+    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES,
+        state=state, redirect_uri=url_for("oauth2callback", _external=True))
+    flow.fetch_token(authorization_response=request.url)
+    creds = flow.credentials
+    token_json = creds.to_json()
+    existing = OAuthToken.query.filter_by(channel_id=cid).first()
+    if existing:
+        existing.token_json = token_json
+        existing.connected_at = datetime.utcnow()
+    else:
+        db.session.add(OAuthToken(channel_id=cid, token_json=token_json))
+    db.session.commit()
+    flash("Google account connected! Studio analytics are now available.")
+    return redirect(url_for("studio_analytics", cid=cid))
+
+@app.route("/intern/channel/<int:cid>/studio-analytics")
+@login_required
+def studio_analytics(cid):
+    ch = Channel.query.get_or_404(cid)
+    if ch.user_id != current_user.id and current_user.role != "reviewer":
+        return "Forbidden", 403
+    token = OAuthToken.query.filter_by(channel_id=cid).first()
+    if not token:
+        flash("Connect your Google account first to see Studio analytics.")
+        return redirect(url_for("intern_channels"))
+
+    end = datetime.utcnow().strftime("%Y-%m-%d")
+    start = request.args.get("from", (datetime.utcnow() - timedelta(days=28)).strftime("%Y-%m-%d"))
+    end = request.args.get("to", end)
+
+    data = fetch_studio_analytics(token.token_json, ch.channel_id, start, end)
+    if "error" in data:
+        flash(f"Analytics error: {data['error']}")
+        return redirect(url_for("intern_channels"))
+
+    now = datetime.utcnow()
+    return render_template("intern/studio_analytics.html", ch=ch, data=data,
+        filters={"from": start, "to": end},
+        range7 =(now - timedelta(days=7) ).strftime("%Y-%m-%d"),
+        range28=(now - timedelta(days=28)).strftime("%Y-%m-%d"),
+        range90=(now - timedelta(days=90)).strftime("%Y-%m-%d"),
+        today=now.strftime("%Y-%m-%d"))
+
+@app.route("/intern/channel/<int:cid>/disconnect-google", methods=["POST"])
+@login_required
+def disconnect_google(cid):
+    token = OAuthToken.query.filter_by(channel_id=cid).first()
+    if token:
+        db.session.delete(token)
+        db.session.commit()
+    flash("Google account disconnected.")
+    return redirect(url_for("intern_channels"))
 
 # ── API ───────────────────────────────────────────────────────────────────────
 @app.route("/api/stats")

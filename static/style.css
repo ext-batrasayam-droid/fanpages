@@ -658,3 +658,36 @@ optgroup option { color: var(--text); }
   color: rgba(255,255,255,0.15);
   letter-spacing: .8px; text-transform: uppercase;
 }
+
+/* ── Studio Primary Metrics ── */
+.studio-primary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px; margin-bottom: 20px;
+}
+.studio-metric-card {
+  border-radius: 16px; padding: 20px 18px;
+  border: 1px solid rgba(255,255,255,0.07);
+  position: relative; overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+}
+.studio-metric-card:hover { transform: translateY(-3px); }
+.studio-metric-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.studio-metric-card.views     { background: rgba(255,0,0,0.06);     border-color: rgba(255,0,0,0.2); }
+.studio-metric-card.views::before     { background: #ff0000; box-shadow: 0 0 12px #ff0000; }
+.studio-metric-card.engaged   { background: rgba(233,30,99,0.06);   border-color: rgba(233,30,99,0.2); }
+.studio-metric-card.engaged::before   { background: #e91e63; box-shadow: 0 0 12px #e91e63; }
+.studio-metric-card.ctr       { background: rgba(255,215,0,0.06);   border-color: rgba(255,215,0,0.2); }
+.studio-metric-card.ctr::before       { background: #ffd700; box-shadow: 0 0 12px #ffd700; }
+.studio-metric-card.stayed    { background: rgba(76,175,80,0.06);   border-color: rgba(76,175,80,0.2); }
+.studio-metric-card.stayed::before    { background: #4caf50; box-shadow: 0 0 12px #4caf50; }
+.studio-metric-card.watchtime { background: rgba(33,150,243,0.06);  border-color: rgba(33,150,243,0.2); }
+.studio-metric-card.watchtime::before { background: #2196f3; box-shadow: 0 0 12px #2196f3; }
+.studio-metric-card.duration  { background: rgba(156,39,176,0.06);  border-color: rgba(156,39,176,0.2); }
+.studio-metric-card.duration::before  { background: #9c27b0; box-shadow: 0 0 12px #9c27b0; }
+
+.smc-label { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
+.smc-val   { font-size: 1.8rem; font-weight: 900; color: #fff; letter-spacing: -1px; margin-bottom: 4px; }
+.smc-sub   { font-size: .72rem; color: #444; }
